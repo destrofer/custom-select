@@ -1,0 +1,21 @@
+{
+  "name": "custom-select",
+  "authors": [
+    "Viacheslav Soroka"
+  ],
+  "description": "Customized view for HTML 'select' tag. Allows checkboxes in dropdown for multiselect.",
+  "main": "js/custom-select.js",
+  "keywords": [
+    "select",
+	"multiselect"
+  ],
+  "license": "MIT",
+  "homepage": "https://github.com/destrofer/custom-select",
+  "private": true,
+  "ignore": [
+    "compile-scss.bat"
+  ],
+  "dependencies": {
+    "jquery": "^1.7.2"
+  }
+}
