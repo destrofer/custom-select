@@ -3,6 +3,8 @@
 *
 * Copyright (c) 2016 Viacheslav Soroka
 *
+* Version: 1.1.0
+*
 * MIT License - http://www.opensource.org/licenses/mit-license.php
 */
 ;(function($) {
@@ -109,6 +111,9 @@
 
 		this.$options = $('<div class="csel-options" />');
 
+		if( typeof this.settings.actions !== "object" )
+			this.settings.actions = this.$input.data("actions");
+
 		if( this.settings.type == 'dropdown' ) {
 			this.$value = $('<div class="csel-value" />');
 		}
@@ -173,37 +178,38 @@
 	CustomSelect.prototype.getOptions = function() {
 		if( this._inputOptions !== null )
 			return this._inputOptions;
+		return this._inputOptions = CustomSelect.getOptionsOfElement(this.$input);
+	};
 
+	CustomSelect.getOptionsOfElement = function($element) {
 		var options = [];
-		this.$input.children('option,optgroup').each(function() {
+		$element.children('option,optgroup').each(function() {
 			var $this = $(this);
 			var option = {};
 			option.cssClass = $this.attr('class');
 			option.cssStyle = $this.attr('style');
 			if( $this.is('optgroup') ) {
-				option.label = $this.attr('label');
-				option.children = [];
-				$this.children('option').each(function() {
-					var $this = $(this);
-					option.children.push({
-						value: $this.attr('value'),
-						text: $this.text(),
-						cssClass: $this.attr('class'),
-						cssStyle: $this.attr('style')
-					});
-				});
+				option.text = $this.attr('label');
+				option.children = CustomSelect.getOptionsOfElement($this);
 			}
 			else {
+				option.separator = $this.attr('data-separator');
+				option.disabled = $this.is(':disabled');
 				option.value = $this.attr('value');
 				option.text = $this.text();
 			}
 			options.push(option);
 		});
-		return this._inputOptions = options;
+		return options;
 	};
 
 	CustomSelect.prototype._createInput = function(option) {
 		var $cont = $('<div />');
+		if( option.separator ) {
+			$cont.addClass("csel-separator-horizontal");
+			return [$cont];
+		}
+
 		var $lbl = $('<label />');
 		var $inp = $('<input />');
 
@@ -217,7 +223,10 @@
 			name: this.name,
 			value: option.value
 		});
-
+		if( option.disabled ) {
+			$cont.addClass("csel-option-disabled");
+			$inp.attr("disabled", "disabled");
+		}
 		var txt = option.text, i = 0, il = txt.length;
 		while( i < il && txt.charAt(i) == " " ) // WARNING: THERE IS A UNICODE &nbsp; SYMBOL, NOT SPACE INSIDE THE QUOTES!
 			i++;
@@ -239,13 +248,67 @@
 	};
 
 	CustomSelect.prototype.refreshOptions = function() {
-		var option, option2, opt, $grp, $lbl;
+		var $wrapper;
 		var options = this.getOptions();
 		this._optionsIndex = {};
 
-		var $wrapper = $('<div class="csel-options-wrapper" />');
+		this.$options.empty();
 
-		for( var i = 0, il = options.length; i < il; i++ ) {
+		var _this = this;
+		if( this.settings.actions ) {
+			$wrapper = $('<div class="csel-actions" />');
+			for( var i = 0; i < this.settings.actions.length; i++ ) {
+				var actionGroup = this.settings.actions[i];
+				var $group = $('<div class="csel-action-group" />');
+				if( typeof actionGroup.text === "string" && actionGroup.text !== "" )
+					$group.append($('<span class="csel-action-group-title" />').text(actionGroup.text));
+				for( var j = 0; j < actionGroup.actions.length; j++ ) {
+					var action = actionGroup.actions[j];
+					var $action = $('<a class="csel-action" href="javascript:void(0)" />')
+						.data("action", action)
+						.text(action.text)
+						.on("click", function(e) {
+							e.stopImmediatePropagation();
+							e.preventDefault();
+							var action = $(this).data("action");
+							var curVal = _this.val() || [];
+							var prevVal = curVal.sort().join("~|~");
+							switch( action.action ) {
+								case "select": {
+									for( var i = action.value.length - 1; i >= 0; i-- )
+										if( curVal.indexOf(action.value[i]) < 0 )
+											curVal.push(action.value[i]);
+									break;
+								}
+								case "deselect": {
+									curVal = curVal.filter(function(val) {
+										return action.value.indexOf(val) < 0;
+									});
+									break;
+								}
+							}
+							_this.val(curVal);
+							if( (_this.val() || []).sort().join("~|~") !== prevVal )
+								_this.$input.trigger("change");
+						})
+					;
+					$group.append($action);
+				}
+				$wrapper.append($group);
+			}
+			this.$options.append($wrapper);
+		}
+
+		$wrapper = $('<div class="csel-options-wrapper" />');
+		this._renderOptions($wrapper, options);
+		this.$options.append($wrapper);
+
+		this.updateSelection();
+	};
+
+	CustomSelect.prototype._renderOptions = function($parent, options) {
+		var i, il, j, jl, k, kl, $groupCont, $optCont, option, opt, $grp, $lbl, hGroups = [], vGroups = [], curVGroup = [];
+		for( i = 0, il = options.length; i < il; i++ ) {
 			option = options[i];
 			if( option.hasOwnProperty('children') ) {
 				$grp = $('<div />');
@@ -255,29 +318,58 @@
 					.attr('class', option.cssClass)
 					.attr('style', option.cssStyle)
 					.addClass('csel-optgroup-label')
-					.text((option.label === '') ? " " : option.label); // WARNING: THERE IS A UNICODE &nbsp; SYMBOL, NOT SPACE INSIDE THE QUOTES!
+					.text((option.text === '') ? " " : option.text); // WARNING: THERE IS A UNICODE &nbsp; SYMBOL, NOT SPACE INSIDE THE QUOTES!
 				$grp.append($lbl);
 
-				for( var j = 0, jl = option.children.length; j < jl; j++ ) {
-					option2 = option.children[j];
-					opt = this._createInput(option2);
-					$grp.append(opt[0]);
-					this._optionsIndex[option2.value] = [opt[1], opt[2]];
+				this._renderOptions($grp, option.children);
+
+				curVGroup.push($grp);
+			}
+			else if( option.separator ) {
+				if( curVGroup.length ) {
+					vGroups.push(curVGroup);
+					curVGroup = [];
 				}
-				// elements.push($grp);
-				$wrapper.append($grp);
+				if( option.separator === "vertical" && vGroups.length ) {
+					hGroups.push(vGroups);
+					vGroups = [];
+				}
 			}
 			else {
 				opt = this._createInput(option);
-				// elements.push(opt[0]);
-				$wrapper.append(opt[0]);
 				this._optionsIndex[option.value] = [opt[1], opt[2]];
+				curVGroup.push(opt[0]);
 			}
 		}
 
-		this.$options.html($wrapper);
+		if( curVGroup.length )
+			vGroups.push(curVGroup);
+		if( vGroups.length )
+			hGroups.push(vGroups);
 
-		this.updateSelection();
+		for( i = 0, il = hGroups.length; i < il; i++ ) {
+			vGroups = hGroups[i];
+			if( il === 1 )
+				$groupCont = $parent;
+			else {
+				$groupCont = $('<div class="csel-horizontal-group">');
+				$parent.append($groupCont).css({
+					whiteSpace: "nowrap"
+				});
+			}
+			for( j = 0, jl = vGroups.length; j < jl; j++ ) {
+				curVGroup = vGroups[j];
+				if( jl === 1 )
+					$optCont = $groupCont;
+				else {
+					$optCont = $('<div class="csel-vertical-group">');
+					$groupCont.append($optCont);
+				}
+				for( k = 0, kl = curVGroup.length; k < kl; k++ ) {
+					$optCont.append(curVGroup[k]);
+				}
+			}
+		}
 	};
 
 	CustomSelect.prototype.updateSelection = function() {
