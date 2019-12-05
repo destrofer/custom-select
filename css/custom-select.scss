@@ -155,17 +155,15 @@
 	background-color: #F0F0F0;
 }
 .csel-action-group {
-}
-.csel-action-group-label {
+	margin-left: -7px;
 }
 .csel-action {
 	white-space: nowrap;
-	&:not(:first-child) {
-		margin-left: 7px;
-	}
+}
+.csel-action-group-title, .csel-action {
+	margin-left: 7px;
 }
 .csel-toggle-action {
-	white-space: nowrap;
 	.csel-toggle-action-input {
 		margin: 0 2px 0 0;
 		vertical-align: -2px;
