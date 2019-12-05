@@ -282,8 +282,8 @@
 									_this.removeFromSelection($(this).data("action").value);
 							})
 						;
-						var $text = $('<span class="csel-toggle-action-text" />').text(action.text);
-						$action.append(action.$input, $text);
+						action.$text = $('<span class="csel-toggle-action-text" />').text(action.text.replace("{count}", 0).replace("{total}", action.value.length));
+						$action.append(action.$input, action.$text);
 					}
 					else {
 						$action = $('<a class="csel-action" href="javascript:void(0)" />')
@@ -451,19 +451,19 @@
 					var action = actionGroup.actions[j];
 					if( action.action !== "toggle" )
 						continue;
-					var allSelected = true;
-					var anySelected = false;
-					for( k = action.value.length - 1; k >= 0; k-- ) {
-						if( !this._optionsIndex.hasOwnProperty(action.value[k]) || this._optionsIndex[action.value[k]][0].is(":disabled") )
+					var count = 0, total = action.value.length;
+					for( k = total - 1; k >= 0; k-- ) {
+						if( !this._optionsIndex.hasOwnProperty(action.value[k]) || this._optionsIndex[action.value[k]][0].is(":disabled") ) {
+							total--;
 							continue;
-						if( selected.indexOf(action.value[k]) < 0 )
-							allSelected = false;
-						else
-							anySelected = true;
+						}
+						if( selected.indexOf(action.value[k]) >= 0 )
+							count++;
 					}
-					if( allSelected )
+					action.$text.text(action.text.replace("{count}", count).replace("{total}", total));
+					if( count === total )
 						action.$input.prop({ checked: true, indeterminate: false });
-					else if( anySelected )
+					else if( count )
 						action.$input.prop({ checked: true, indeterminate: true });
 					else
 						action.$input.prop({ checked: false, indeterminate: false });
@@ -579,7 +579,7 @@
 			if( typeof(args[0]) == "string" && args.length > 0 ) {
 				if( !instance )
 					return;
-				if( args[0].substring(1,1) == '_' ) {
+				if( args[0].substring(1,1) === '_' ) {
 					console.error("Cannot call protected methods");
 					return false;
 				}
