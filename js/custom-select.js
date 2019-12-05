@@ -3,7 +3,7 @@
 *
 * Copyright (c) 2016 Viacheslav Soroka
 *
-* Version: 1.1.0
+* Version: 1.2.0
 *
 * MIT License - http://www.opensource.org/licenses/mit-license.php
 */
@@ -45,6 +45,12 @@
 	 * @type {jQuery}
 	 **/
 	CustomSelect.prototype.$value = null;
+
+	/**
+	 * The container for all the rendered actions and options.
+	 * @type {jQuery}
+	 **/
+	CustomSelect.prototype.$dropDown = null;
 
 	/**
 	 * The container for all the rendered options.
@@ -109,7 +115,7 @@
 		this.$element.attr('class', this.$input.attr('class')).addClass('custom-select-widget').addClass((this.settings.type == 'list') ? 'csel-list' : 'csel-dropdown');
 		this.$element.attr('style', this.$input.attr('style'));
 
-		this.$options = $('<div class="csel-options" />');
+		this.$dropDown = $('<div class="csel-options" />');
 
 		if( typeof this.settings.actions !== "object" )
 			this.settings.actions = this.$input.data("actions");
@@ -124,12 +130,12 @@
 			this.$element.append('<div class="csel-caret" />');
 			this.$element.append(this.$value);
 
-			this.$options.addClass('csel-options-dd');
+			this.$dropDown.addClass('csel-options-dd');
 
-			$('body').append(this.$options);
+			$('body').append(this.$dropDown);
 		}
 		else {
-			this.$element.append(this.$options);
+			this.$element.append(this.$dropDown);
 		}
 
 		this.$input.css({
@@ -140,14 +146,14 @@
 		});
 
 		this.$element.data('customSelect', this);
-		this.$options.data('customSelect', this);
+		this.$dropDown.data('customSelect', this);
 
-		this.$options.on('click', function(e) {
+		this.$dropDown.on('click', function(e) {
 			var $target = $(e.target);
 			e.stopImmediatePropagation();
 
 			var instance;
-			if( $target.is('input') ) {
+			if( $target.is('input') && !$target.is(".csel-toggle-action-input") ) {
 				var val;
 				instance = $target.closest('.csel-options').data('customSelect');
 				if( instance.isMultiSelect ) {
@@ -252,7 +258,7 @@
 		var options = this.getOptions();
 		this._optionsIndex = {};
 
-		this.$options.empty();
+		this.$dropDown.empty();
 
 		var _this = this;
 		if( this.settings.actions ) {
@@ -263,47 +269,87 @@
 				if( typeof actionGroup.text === "string" && actionGroup.text !== "" )
 					$group.append($('<span class="csel-action-group-title" />').text(actionGroup.text));
 				for( var j = 0; j < actionGroup.actions.length; j++ ) {
-					var action = actionGroup.actions[j];
-					var $action = $('<a class="csel-action" href="javascript:void(0)" />')
-						.data("action", action)
-						.text(action.text)
-						.on("click", function(e) {
-							e.stopImmediatePropagation();
-							e.preventDefault();
-							var action = $(this).data("action");
-							var curVal = _this.val() || [];
-							var prevVal = curVal.sort().join("~|~");
-							switch( action.action ) {
-								case "select": {
-									for( var i = action.value.length - 1; i >= 0; i-- )
-										if( curVal.indexOf(action.value[i]) < 0 )
-											curVal.push(action.value[i]);
-									break;
+					var $action, action = actionGroup.actions[j];
+					if( action.action === "toggle" ) {
+						$action = $('<label class="csel-action csel-toggle-action" />');
+						action.$input = $('<input type="checkbox" class="csel-toggle-action-input" />')
+							.data("action", action)
+							.prop("indeterminate", true)
+							.on("click", function(e) {
+								if( $(this).prop("checked") )
+									_this.addToSelection($(this).data("action").value);
+								else
+									_this.removeFromSelection($(this).data("action").value);
+							})
+						;
+						var $text = $('<span class="csel-toggle-action-text" />').text(action.text);
+						$action.append(action.$input, $text);
+					}
+					else {
+						$action = $('<a class="csel-action" href="javascript:void(0)" />')
+							.data("action", action)
+							.text(action.text)
+							.on("click", function(e) {
+								e.stopImmediatePropagation();
+								e.preventDefault();
+								var action = $(this).data("action");
+								switch( action.action ) {
+									case "select": {
+										_this.addToSelection(action.value);
+										break;
+									}
+									case "deselect": {
+										_this.removeFromSelection(action.value);
+										break;
+									}
 								}
-								case "deselect": {
-									curVal = curVal.filter(function(val) {
-										return action.value.indexOf(val) < 0;
-									});
-									break;
-								}
-							}
-							_this.val(curVal);
-							if( (_this.val() || []).sort().join("~|~") !== prevVal )
-								_this.$input.trigger("change");
-						})
-					;
+							})
+						;
+					}
 					$group.append($action);
 				}
 				$wrapper.append($group);
 			}
-			this.$options.append($wrapper);
+			this.$dropDown.append($wrapper);
 		}
 
-		$wrapper = $('<div class="csel-options-wrapper" />');
-		this._renderOptions($wrapper, options);
-		this.$options.append($wrapper);
+		this.$options = $('<div class="csel-options-wrapper" />');
+		this._renderOptions(this.$options, options);
+		this.$dropDown.append(this.$options);
 
 		this.updateSelection();
+	};
+
+	CustomSelect.prototype.addToSelection = function(value) {
+		if( this.isMultiSelect ) {
+			var curVal = this.val() || [];
+			var prevVal = curVal.sort().join("~|~");
+
+			for( var i = value.length - 1; i >= 0; i-- )
+				if( curVal.indexOf(value[i]) < 0 )
+					curVal.push(value[i]);
+
+			this.val(curVal);
+			if( (this.val() || []).sort().join("~|~") !== prevVal )
+				this.$input.trigger("change");
+		}
+		return this;
+	};
+
+	CustomSelect.prototype.removeFromSelection = function(value) {
+		if( this.isMultiSelect ) {
+			var curVal = this.val() || [];
+			var prevVal = curVal.sort().join("~|~");
+
+			curVal = curVal.filter(function(val) {
+				return value.indexOf(val) < 0;
+			});
+
+			this.val(curVal);
+			if( (this.val() || []).sort().join("~|~") !== prevVal )
+				this.$input.trigger("change");
+		}
+		return this;
 	};
 
 	CustomSelect.prototype._renderOptions = function($parent, options) {
@@ -376,13 +422,13 @@
 		if( this._optionsIndex === null )
 			this.refreshOptions();
 
-		var selected = originalValFunc.call(this.$input);
+		var i, j, k, selected = originalValFunc.call(this.$input);
 
 		this.$options.find(':input:checked').prop('checked', false);
 		if( this.isMultiSelect ) {
 			if( selected === null )
 				selected = [];
-			for( var i = 0, il = selected.length; i < il; i++ ) {
+			for( i = 0, il = selected.length; i < il; i++ ) {
 				var v = selected[i];
 				if( this._optionsIndex.hasOwnProperty(v) )
 					this._optionsIndex[v][0].prop('checked', true);
@@ -394,6 +440,36 @@
 		}
 
 		this.updateValue();
+	};
+
+	CustomSelect.prototype.updateActions = function() {
+		if( typeof this.settings.actions === "object" && this.settings.actions ) {
+			var selected = originalValFunc.call(this.$input) || [];
+			for( i = this.settings.actions.length - 1; i >= 0; i-- ) {
+				var actionGroup = this.settings.actions[i];
+				for( j = actionGroup.actions.length - 1; j >= 0; j-- ) {
+					var action = actionGroup.actions[j];
+					if( action.action !== "toggle" )
+						continue;
+					var allSelected = true;
+					var anySelected = false;
+					for( k = action.value.length - 1; k >= 0; k-- ) {
+						if( !this._optionsIndex.hasOwnProperty(action.value[k]) || this._optionsIndex[action.value[k]][0].is(":disabled") )
+							continue;
+						if( selected.indexOf(action.value[k]) < 0 )
+							allSelected = false;
+						else
+							anySelected = true;
+					}
+					if( allSelected )
+						action.$input.prop({ checked: true, indeterminate: false });
+					else if( anySelected )
+						action.$input.prop({ checked: true, indeterminate: true });
+					else
+						action.$input.prop({ checked: false, indeterminate: false });
+				}
+			}
+		}
 	};
 
 	/**
@@ -416,6 +492,7 @@
 				if( this._optionsIndex.hasOwnProperty(v) )
 					text.push(this._optionsIndex[v][1]);
 			}
+			this.updateActions();
 		}
 		else {
 			text.push(this._optionsIndex.hasOwnProperty(selected) ? this._optionsIndex[selected][1] : '');
@@ -441,9 +518,9 @@
 
 		if( this.settings.type == 'dropdown' ) {
 			this.$element.addClass('active');
-			this.$options.addClass('active');
+			this.$dropDown.addClass('active');
 			var pos = this.$element.offset();
-			this.$options.css({
+			this.$dropDown.css({
 				left: pos.left + 'px',
 				top: (pos.top + this.$element.outerHeight() - 1) + 'px',
 				'min-width': this.$element.outerWidth() + 'px'
@@ -456,7 +533,7 @@
 	CustomSelect.prototype.close = function() {
 		if( this.settings.type == 'dropdown' ) {
 			this.$element.removeClass('active');
-			this.$options.removeClass('active');
+			this.$dropDown.removeClass('active');
 			if( CustomSelect._activeDropdown == this )
 				CustomSelect._activeDropdown = null;
 			this.$input.trigger('close');
@@ -477,8 +554,8 @@
 	$(function() {
 		$('body').on('click', function(e) {
 			if( CustomSelect._activeDropdown ) {
-				var $options = $(e.target).closest('.csel-options');
-				if( $options.length == 0 || $options.data('customSelect') != CustomSelect._activeDropdown )
+				var $dropDown = $(e.target).closest('.csel-options');
+				if( $dropDown.length == 0 || $dropDown.data('customSelect') != CustomSelect._activeDropdown )
 					CustomSelect._activeDropdown.close();
 			}
 		});

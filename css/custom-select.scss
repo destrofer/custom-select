@@ -46,10 +46,10 @@
 .csel-caret {
 	position: absolute;
 	top: 50%;
-	right: 6px;
-	margin-top: -3px;
-	width: 6px;
-	height: 6px;
+	right: 7px;
+	margin-top: -2px;
+	width: 7px;
+	height: 4px;
 	background: url(../img/csel-caret.png) no-repeat center center;
 	cursor: default;
 }
@@ -159,7 +159,15 @@
 .csel-action-group-label {
 }
 .csel-action {
+	white-space: nowrap;
 	&:not(:first-child) {
-		margin-left: 5px;
+		margin-left: 7px;
+	}
+}
+.csel-toggle-action {
+	white-space: nowrap;
+	.csel-toggle-action-input {
+		margin: 0 2px 0 0;
+		vertical-align: -2px;
 	}
 }
