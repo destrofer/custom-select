@@ -5,6 +5,8 @@
 *
 * MIT License - http://www.opensource.org/licenses/mit-license.php
 */
+$actionSpacing: 7px;
+
 .custom-select-widget {
 	position: relative;
 	outline: none;
@@ -155,17 +157,26 @@
 	background-color: #F0F0F0;
 }
 .csel-action-group {
-	margin-left: -7px;
+	margin-left: (0 - $actionSpacing);
 }
 .csel-action {
 	white-space: nowrap;
 }
 .csel-action-group-title, .csel-action {
-	margin-left: 7px;
+	margin-left: $actionSpacing;
 }
 .csel-toggle-action {
 	.csel-toggle-action-input {
 		margin: 0 2px 0 0;
 		vertical-align: -2px;
+	}
+}
+.csel-quick-filter-action {
+	box-sizing: border-box;
+	padding-right: $actionSpacing;
+	width: 100%;
+	& > input {
+		box-sizing: border-box;
+		width: 100%;
 	}
 }

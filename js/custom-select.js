@@ -3,7 +3,7 @@
 *
 * Copyright (c) 2016 Viacheslav Soroka
 *
-* Version: 1.3.1
+* Version: 1.4.0
 *
 * MIT License - http://www.opensource.org/licenses/mit-license.php
 */
@@ -284,6 +284,23 @@
 						;
 						action.$text = $('<span class="csel-toggle-action-text" />').text(action.text.replace("{count}", 0).replace("{total}", action.value.length));
 						$action.append(action.$input, action.$text);
+					}
+					else if( action.action === "quick-filter" ) {
+						$action = $('<div class="csel-action csel-quick-filter-action" />');
+						action.$input = $('<input type="text" value="" />').attr("placeholder", action.text)
+							.on("keyup change paste cut", function() {
+								var searchVal = $(this).val().toLowerCase();
+								_this.$options.find(':input').each(function() {
+									var $input = $(this);
+									var $option = $input.closest(".csel-option");
+									if( searchVal === "" || $input.attr("value").toLowerCase().indexOf(searchVal) >= 0 || $option.text().toLowerCase().indexOf(searchVal) >= 0 )
+										$option.css("display", "");
+									else
+										$option.css("display", "none");
+								});
+							})
+						;
+						$action.append(action.$input);
 					}
 					else {
 						$action = $('<a class="csel-action" href="javascript:void(0)" />')
